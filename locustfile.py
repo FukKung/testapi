@@ -9,7 +9,11 @@ USER_AGENTS = [
 ]
 
 class LoadTestUser(HttpUser):
-    wait_time = between(0.01, 0.05)  # หน่วงน้อยมาก
+    wait_time = between(0.01, 0.05)
+
+    def on_start(self):
+        # ปิด verify ssl
+        self.client.verify = False
 
     @task
     def heavy_load(self):

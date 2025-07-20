@@ -20,9 +20,9 @@ const userAgents = [
 
 const URL = "https://unpraised.online/login.php";
 
-const BATCH_SIZE = 1000; // ยิงทีละ 100 requests
-const TARGET_PER_SECOND = 500;
-const DELAY_BETWEEN_BATCH = 1000 * BATCH_SIZE / TARGET_PER_SECOND; // 200ms
+const BATCH_SIZE = 1000;  // ยิงทีละ 1000 requests
+const TARGET_PER_SECOND = 1000;  // เป้าหมาย 1000 requests ต่อ 1 วิ
+const DELAY_BETWEEN_BATCH = 1000 * BATCH_SIZE / TARGET_PER_SECOND;  // 1000 ms
 
 function randomDelay(min = 10, max = 50) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
